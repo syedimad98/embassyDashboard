@@ -13,6 +13,10 @@ Open the Vite URL printed in the terminal. The API runs on port 3001 and Vite pr
 
 Run the frontend alone with `npm run dev` or the API alone with `npm run server`.
 
+## Deploy to Netlify
+
+The Netlify build configuration publishes the Vite `dist` directory and deploys the report endpoints as Netlify Functions. Connect the Git repository to Netlify and deploy using the included `netlify.toml`; `/api/reports`, `/api/reports/export.csv`, and `/api/health` are routed to their matching functions.
+
 ## API
 
 - `GET /api/health` reports server health.
