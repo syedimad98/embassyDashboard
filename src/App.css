@@ -43,16 +43,11 @@
   gap: 12px;
 }
 
-.avatar {
-  width: 38px;
+.avatar-logo {
+  width: 92px;
   height: 38px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  color: #174e47;
-  background: #d9f2ec;
-  font-size: 14px;
-  font-weight: 750;
+  display: block;
+  object-fit: contain;
 }
 
 .user-copy {
@@ -519,9 +514,9 @@
     display: none;
   }
 
-  .avatar {
-    width: 34px;
-    height: 34px;
+  .avatar-logo {
+    width: 76px;
+    height: 32px;
   }
 
   .user-copy strong {

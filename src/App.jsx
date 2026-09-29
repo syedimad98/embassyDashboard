@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CalendarDays, ChevronLeft, ChevronRight, Download, ListFilter, RefreshCw, Search } from 'lucide-react'
+import adBlissLogo from './assets/AdBliss Digita logo cov.jpg'
 import './App.css'
 
 const numberFormat = new Intl.NumberFormat('en-IN')
@@ -147,8 +148,8 @@ function App() {
 
         </nav>
         <div className="user-profile">
-          <span className="avatar">AG</span>
-          <span className="user-copy"><strong>Ashish Gupta</strong><small>Admin</small></span>
+          <img className="avatar-logo" src={adBlissLogo} alt="AdBliss Digital" />
+          <span className="user-copy"><strong>Adbliss Digital</strong><small>Admin</small></span>
         </div>
       </header>
 
