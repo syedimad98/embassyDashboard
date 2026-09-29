@@ -1,7 +1,7 @@
 export const reportRows = [
   {
     id: 'embassy-target',
-    campaign: 'Embassy',
+    campaign: 'Embassy - Static Display Programmatic',
     status: 'Target',
     impressions: 6000000,
     reach: 2000000,
@@ -12,7 +12,7 @@ export const reportRows = [
   },
   {
     id: 'embassy-delivered',
-    campaign: 'Embassy',
+    campaign: 'Embassy - Static Display Programmatic',
     status: 'Delivered',
     impressions: 3650707,
     reach: 1229885,
