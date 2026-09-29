@@ -141,8 +141,7 @@ function App() {
             </div>
           </div>
 
-          <p className="table-note">All figures are shown in Indian numbering format. Target and delivered values are shown on separate rows.</p>
-
+         
           {error && <div className="error-banner" role="alert">{error}</div>}
 
           <div className="table-scroll">
