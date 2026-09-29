@@ -1,4 +1,14 @@
-export const reportCsvFields = [
+export const dayCsvFields = [
+  ['campaign', 'Campaign'],
+  ['date', 'Date'],
+  ['impressions', 'Impressions'],
+  ['clicks', 'Clicks'],
+  ['ctr', 'CTR %'],
+  ['reach', 'Reach'],
+  ['spend', 'Spend'],
+]
+
+export const allCsvFields = [
   ['campaign', 'Campaign'],
   ['status', 'Status'],
   ['impressions', 'Impressions'],
@@ -9,10 +19,35 @@ export const reportCsvFields = [
   ['totalSpend', 'Total Spend'],
 ]
 
-export function createReportCsv(reports) {
+export const publisherCsvFields = [
+  ['campaign', 'Campaign'],
+  ['publisher', 'Publisher'],
+  ['impressions', 'Impressions'],
+  ['clicks', 'Clicks'],
+  ['ctr', 'CTR %'],
+  ['reach', 'Reach'],
+]
+
+export const creatorCsvFields = [
+  ['campaign', 'Campaign'],
+  ['creator', 'Creator'],
+  ['impressions', 'Impressions'],
+  ['clicks', 'Clicks'],
+  ['ctr', 'CTR %'],
+  ['reach', 'Reach'],
+]
+
+export function createReportCsv(reports, view = 'all') {
+  const fields = {
+    all: allCsvFields,
+    creator: creatorCsvFields,
+    day: dayCsvFields,
+    publisher: publisherCsvFields,
+  }[view] ?? allCsvFields
+
   return [
-    reportCsvFields.map(([, label]) => csvCell(label)).join(','),
-    ...reports.map((row) => reportCsvFields.map(([key]) => csvCell(row[key] ?? '')).join(',')),
+    fields.map(([, label]) => csvCell(label)).join(','),
+    ...reports.map((row) => fields.map(([key]) => csvCell(row[key] ?? '')).join(',')),
   ].join('\n')
 }
 

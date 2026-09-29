@@ -20,8 +20,8 @@ The Netlify build configuration publishes the Vite `dist` directory and deploys 
 ## API
 
 - `GET /api/health` reports server health.
-- `GET /api/reports` returns report rows, summary totals, and filter options. Optional query parameters: `campaign`, `geo`, `status`, and `search`.
-- `GET /api/reports/export.csv` downloads the rows matching those same filters.
+- `GET /api/reports` supports `view=all`, `view=day`, `view=publisher`, and `view=creator`. All returns the Targeted/Delivered campaign summary, while Creator-wise currently returns no rows. `page` and `pageSize` control pagination; `date` filters the day view and `search` matches the active report fields.
+- `GET /api/reports/export.csv` downloads all matching rows in the selected report view, independent of the current page.
 
 ## Checks
 

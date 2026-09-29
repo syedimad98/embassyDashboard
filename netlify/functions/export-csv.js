@@ -2,7 +2,10 @@ import { getReportData } from '../../server/reportData.js'
 import { createReportCsv } from '../../server/reportCsv.js'
 
 export const handler = async (event) => {
-  const { reports } = getReportData(event.queryStringParameters ?? {})
+  const { reports } = getReportData({
+    ...event.queryStringParameters,
+    pageSize: 'all',
+  })
 
   return {
     statusCode: 200,
@@ -10,6 +13,6 @@ export const handler = async (event) => {
       'content-type': 'text/csv; charset=utf-8',
       'content-disposition': 'attachment; filename="audience-delivery-report.csv"',
     },
-    body: createReportCsv(reports),
+    body: createReportCsv(reports, event.queryStringParameters?.view),
   }
 }
