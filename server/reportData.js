@@ -1,4 +1,4 @@
-export const campaignName = 'Embassy - Static Display Programmatic'
+export const campaignName = 'Embassy - Programmatic'
 
 export const summaryRows = [
   {
