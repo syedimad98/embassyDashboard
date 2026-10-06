@@ -11,12 +11,15 @@ export const dayCsvFields = [
 export const allCsvFields = [
   ['campaign', 'Campaign'],
   ['status', 'Status'],
+  ['totalAudience', 'Total Audience (TG & Geo)'],
   ['impressions', 'Impressions'],
+  ['frequency', 'Freq'],
   ['reach', 'Reach'],
+  ['reachPercent', 'Reach % of Total Audience'],
   ['ctr', 'CTR %'],
   ['clicks', 'Clicks'],
-  ['totalBudget', 'Total Budget'],
-  ['totalSpend', 'Total Spend'],
+  ['cpc', 'Rate per unit (CPC)'],
+  ['netCost', 'Net Cost (INR)'],
 ]
 
 export const publisherCsvFields = [
@@ -37,11 +40,33 @@ export const creatorCsvFields = [
   ['reach', 'Reach'],
 ]
 
+export const genderCsvFields = [
+  ['campaign', 'Campaign'],
+  ['gender', 'Gender'],
+  ['impressions', 'Impression'],
+  ['clicks', 'Click'],
+  ['ctr', 'CTR'],
+  ['reach', 'Reach'],
+  ['spend', 'Spend'],
+]
+
+export const ageCsvFields = [
+  ['campaign', 'Campaign'],
+  ['ageGroup', 'Age group'],
+  ['impressions', 'Impression'],
+  ['clicks', 'Click'],
+  ['ctr', 'CTR'],
+  ['reach', 'Reach'],
+  ['spend', 'Spend'],
+]
+
 export function createReportCsv(reports, view = 'all') {
   const fields = {
     all: allCsvFields,
+    age: ageCsvFields,
     creator: creatorCsvFields,
     day: dayCsvFields,
+    gender: genderCsvFields,
     publisher: publisherCsvFields,
   }[view] ?? allCsvFields
 

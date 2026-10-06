@@ -14,11 +14,12 @@ app.get('/api/reports', (request, response) => {
 })
 
 app.get('/api/reports/export.csv', (request, response) => {
-  const { reports } = getReportData({ ...request.query, pageSize: 'all' })
+  const { reports, total } = getReportData({ ...request.query, pageSize: 'all' })
+  const exportRows = total ? [...reports, total] : reports
   response
     .type('text/csv')
     .attachment('audience-delivery-report.csv')
-    .send(createReportCsv(reports, request.query.view))
+    .send(createReportCsv(exportRows, request.query.view))
 })
 
 app.listen(port, () => {

@@ -5,23 +5,29 @@ export const summaryRows = [
     id: 'embassy-targeted',
     campaign: campaignName,
     status: 'Targeted',
+    totalAudience: 6500977,
     impressions: 6000000,
+    frequency: 3,
     reach: 2000000,
+    reachPercent: 31,
     ctr: 0.5,
     clicks: 30000,
-    totalBudget: 300000,
-    totalSpend: null,
+    cpc: 10,
+    netCost: 300000,
   },
   {
     id: 'embassy-delivered',
     campaign: campaignName,
     status: 'Delivered',
-    impressions: 3650707,
-    reach: 1229885,
+    totalAudience: 6500977,
+    impressions: 1623886,
+    frequency: 2.93,
+    reach: 554628,
+    reachPercent: 8.53,
     ctr: 0.51,
-    clicks: 18501,
-    totalBudget: null,
-    totalSpend: 185010,
+    clicks: 8271,
+    cpc: 10,
+    netCost: 82710,
   },
 ]
 
@@ -29,13 +35,63 @@ export const reportRows = [
   { id: '22-sep', date: '22 Sep', impressions: 470042, clicks: 2432, ctr: 0.52, reach: 149967, spend: 24320 },
   { id: '23-sep', date: '23 Sep', impressions: 696945, clicks: 3422, ctr: 0.49, reach: 240965, spend: 34220 },
   { id: '24-sep', date: '24 Sep', impressions: 456899, clicks: 2417, ctr: 0.53, reach: 163696, spend: 24170 },
-  { id: '25-sep', date: '25 Sep', impressions: 534262, clicks: 2721, ctr: 0.51, reach: 176253, spend: 27210 },
-  { id: '26-sep', date: '26 Sep', impressions: 703317, clicks: 3371, ctr: 0.48, reach: 241082, spend: 33710 },
-  { id: '27-sep', date: '27 Sep', impressions: 789242, clicks: 4138, ctr: 0.52, reach: 257922, spend: 41380 },
-  { id: '28-sep', date: '28 Sep', impressions: 557627, clicks: 2961, ctr: 0.53, reach: 203520, spend: 29610 },
+  { id: '25-sep', date: '25 Sep', impressions: null, clicks: null, ctr: null, reach: null, spend: null },
+  { id: '26-sep', date: '26 Sep', impressions: null, clicks: null, ctr: null, reach: null, spend: null },
+  { id: '27-sep', date: '27 Sep', impressions: null, clicks: null, ctr: null, reach: null, spend: null },
+  { id: '28-sep', date: '28 Sep', impressions: null, clicks: null, ctr: null, reach: null, spend: null },
   { id: '29-sep', date: '29 Sep', impressions: null, clicks: null, ctr: null, reach: null, spend: null },
   { id: '30-sep', date: '30 Sep', impressions: null, clicks: null, ctr: null, reach: null, spend: null },
 ]
+
+function sumReportField(field) {
+  return reportRows.reduce((total, row) => total + (row[field] ?? 0), 0)
+}
+
+const totalImpressions = sumReportField('impressions')
+const totalClicks = sumReportField('clicks')
+
+export const dayTotal = {
+  id: 'day-total',
+  date: 'Total',
+  impressions: totalImpressions,
+  clicks: totalClicks,
+  ctr: Number(((totalClicks / totalImpressions) * 100).toFixed(2)),
+  reach: sumReportField('reach'),
+  spend: sumReportField('spend'),
+}
+
+export const genderRows = [
+  { id: 'male', gender: 'Male', impressions: 3730815, clicks: 19394, ctr: 0.52, reach: 1355506, spend: 193940 },
+  { id: 'female', gender: 'Female', impressions: 2272106, clicks: 10962, ctr: 0.48, reach: 708612, spend: 109620 },
+]
+
+export const ageRows = [
+  { id: '25-34', ageGroup: '25-34', impressions: 354818, clicks: 1528, ctr: 0.43, reach: 116784, spend: 15280 },
+  { id: '35-45', ageGroup: '35-45', impressions: 721596, clicks: 3906, ctr: 0.54, reach: 255927, spend: 39060 },
+  { id: '46-50', ageGroup: '46-50', impressions: 547472, clicks: 2837, ctr: 0.52, reach: 181917, spend: 28370 },
+]
+
+function createDemographicTotal(rows, id, labelKey) {
+  const impressions = rows.reduce((total, row) => total + row.impressions, 0)
+  const clicks = rows.reduce((total, row) => total + row.clicks, 0)
+
+  return {
+    id,
+    [labelKey]: 'Total',
+    impressions,
+    clicks,
+    ctr: Number(((clicks / impressions) * 100).toFixed(2)),
+    reach: rows.reduce((total, row) => total + row.reach, 0),
+    spend: rows.reduce((total, row) => total + row.spend, 0),
+  }
+}
+
+export const genderTotal = {
+  ...createDemographicTotal(genderRows, 'gender-total', 'gender'),
+  ctr: 0.51,
+}
+
+export const ageTotal = createDemographicTotal(ageRows, 'age-total', 'ageGroup')
 
 export const publisherRows = [
   { id: 'udayavani', publisher: 'Udayavani', impressions: 145112, clicks: 767, ctr: 0.53, reach: 42720 },
@@ -105,6 +161,21 @@ export function getReportData({ view = 'all', date = 'all', search = '', page = 
     })
   }
 
+  if (view === 'gender' || view === 'age') {
+    const rows = view === 'gender' ? genderRows : ageRows
+    const labelKey = view === 'gender' ? 'gender' : 'ageGroup'
+    const total = view === 'gender' ? genderTotal : ageTotal
+
+    return createResponse({
+      view,
+      reports: filterBySearch(addCampaign(rows), query, labelKey),
+      total: query ? null : addCampaign([total])[0],
+      dates: createDateOptions(),
+      page,
+      pageSize,
+    })
+  }
+
   const dateReports = date === 'all'
     ? reportRows
     : reportRows.filter((row) => row.id === date)
@@ -113,6 +184,7 @@ export function getReportData({ view = 'all', date = 'all', search = '', page = 
   return createResponse({
     view: 'day',
     reports,
+    total: date === 'all' && !query ? addCampaign([dayTotal])[0] : null,
     dates: createDateOptions(),
     page,
     pageSize,

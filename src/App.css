@@ -316,7 +316,7 @@
 }
 
 .report-table.all-table {
-  min-width: 1100px;
+  min-width: 1500px;
 }
 
 .report-table thead {
@@ -366,6 +366,12 @@
 .report-table .target-row,
 .report-table .targeted-row {
   background: #fcfdff;
+}
+
+.report-table .total-row {
+  background: #f8f9fb;
+  color: #172337;
+  font-weight: 700;
 }
 
 .campaign-cell,

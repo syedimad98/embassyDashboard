@@ -8,12 +8,15 @@ const numberFormat = new Intl.NumberFormat('en-IN')
 const allColumns = [
   { key: 'campaign', label: 'Campaign', className: 'campaign-column' },
   { key: 'status', label: 'Status' },
+  { key: 'totalAudience', label: 'Total Audience (TG & Geo)' },
   { key: 'impressions', label: 'Impressions' },
+  { key: 'frequency', label: 'Freq' },
   { key: 'reach', label: 'Reach' },
-  { key: 'ctr', label: 'CTR' },
+  { key: 'reachPercent', label: 'Reach % of Total Audience' },
+  { key: 'ctr', label: 'CTR %' },
   { key: 'clicks', label: 'Clicks' },
-  { key: 'totalBudget', label: 'Total Budget' },
-  { key: 'totalSpend', label: 'Total Spend' },
+  { key: 'cpc', label: 'Rate per unit (CPC)' },
+  { key: 'netCost', label: 'Net Cost (INR)' },
 ]
 
 const dayColumns = [
@@ -21,6 +24,26 @@ const dayColumns = [
   { key: 'date', label: 'Date', className: 'date-column' },
   { key: 'impressions', label: 'Impressions' },
   { key: 'clicks', label: 'Clicks' },
+  { key: 'ctr', label: 'CTR' },
+  { key: 'reach', label: 'Reach' },
+  { key: 'spend', label: 'Spend' },
+]
+
+const genderColumns = [
+  { key: 'campaign', label: 'Campaign', className: 'campaign-column' },
+  { key: 'gender', label: 'Gender', className: 'date-column' },
+  { key: 'impressions', label: 'Impression' },
+  { key: 'clicks', label: 'Click' },
+  { key: 'ctr', label: 'CTR' },
+  { key: 'reach', label: 'Reach' },
+  { key: 'spend', label: 'Spend' },
+]
+
+const ageColumns = [
+  { key: 'campaign', label: 'Campaign', className: 'campaign-column' },
+  { key: 'ageGroup', label: 'Age group', className: 'date-column' },
+  { key: 'impressions', label: 'Impression' },
+  { key: 'clicks', label: 'Click' },
   { key: 'ctr', label: 'CTR' },
   { key: 'reach', label: 'Reach' },
   { key: 'spend', label: 'Spend' },
@@ -47,12 +70,18 @@ const creatorColumns = [
 const viewDetails = {
   all: { eyebrow: 'CAMPAIGN SUMMARY', title: 'Targeted vs delivered' },
   day: { eyebrow: 'DELIVERY BREAKDOWN', title: 'Day-wise performance' },
-  publisher: { eyebrow: 'REPORT TILL 27 SEPT', title: 'Publisher-wise performance' },
+  gender: { eyebrow: 'AUDIENCE BREAKDOWN', title: 'Gender-wise performance' },
+  age: { eyebrow: 'AUDIENCE BREAKDOWN', title: 'Age-wise performance' },
+  publisher: { eyebrow: 'PUBLISHER BREAKDOWN', title: 'Publisher-wise performance' },
   creator: { eyebrow: 'CREATOR BREAKDOWN', title: 'Creator-wise performance' },
 }
 
 function formatNumber(value) {
   return value == null ? '—' : numberFormat.format(value)
+}
+
+function formatDecimal(value) {
+  return value == null ? '—' : value.toLocaleString('en-IN', { maximumFractionDigits: 2 })
 }
 
 function ReportValues({ row, view }) {
@@ -61,12 +90,15 @@ function ReportValues({ row, view }) {
       <>
         <th scope="row" className="campaign-cell">{row.campaign}</th>
         <td><span className={`status-tag ${row.status.toLowerCase()}`}>{row.status}</span></td>
+        <td>{formatNumber(row.totalAudience)}</td>
         <td>{formatNumber(row.impressions)}</td>
+        <td>{formatDecimal(row.frequency)}</td>
         <td>{formatNumber(row.reach)}</td>
+        <td>{formatDecimal(row.reachPercent)}%</td>
         <td>{row.ctr.toFixed(2)}%</td>
         <td>{formatNumber(row.clicks)}</td>
-        <td>{row.totalBudget == null ? '—' : `₹${numberFormat.format(row.totalBudget)}`}</td>
-        <td className="cost-cell">{row.totalSpend == null ? '—' : `₹${numberFormat.format(row.totalSpend)}`}</td>
+        <td>₹{formatDecimal(row.cpc)}</td>
+        <td className="cost-cell">₹{formatNumber(row.netCost)}</td>
       </>
     )
   }
@@ -74,18 +106,29 @@ function ReportValues({ row, view }) {
   return (
     <>
       <th scope="row" className="campaign-cell">{row.campaign}</th>
-      <td className="label-cell">{view === 'publisher' ? row.publisher : view === 'creator' ? row.creator : row.date}</td>
+      <td className="label-cell">{view === 'publisher'
+        ? row.publisher
+        : view === 'creator'
+          ? row.creator
+          : view === 'gender'
+            ? row.gender
+            : view === 'age'
+              ? row.ageGroup
+              : row.date}</td>
       <td>{formatNumber(row.impressions)}</td>
       <td>{formatNumber(row.clicks)}</td>
       <td>{row.ctr == null ? '—' : `${row.ctr.toFixed(2)}%`}</td>
       <td>{formatNumber(row.reach)}</td>
-      {view === 'day' && <td className="cost-cell">{row.spend == null ? '—' : `₹${numberFormat.format(row.spend)}`}</td>}
+      {(view === 'day' || view === 'gender' || view === 'age') && (
+        <td className="cost-cell">{row.spend == null ? '—' : `₹${numberFormat.format(row.spend)}`}</td>
+      )}
     </>
   )
 }
 
 function App() {
   const [reports, setReports] = useState([])
+  const [reportTotal, setReportTotal] = useState(null)
   const [dates, setDates] = useState([])
   const [view, setView] = useState('all')
   const [date, setDate] = useState('all')
@@ -102,6 +145,8 @@ function App() {
     all: allColumns,
     creator: creatorColumns,
     day: dayColumns,
+    gender: genderColumns,
+    age: ageColumns,
     publisher: publisherColumns,
   }[view]
 
@@ -112,12 +157,14 @@ function App() {
       setLoading(true)
       setError('')
       setReports([])
+      setReportTotal(null)
       setPagination(null)
       try {
         const response = await fetch(`/api/reports?${filterKey}`, { signal: controller.signal })
         if (!response.ok) throw new Error('The report could not be loaded.')
         const data = await response.json()
         setReports(data.reports)
+        setReportTotal(data.total ?? null)
         setDates(data.dates)
         setPagination(data.pagination)
       } catch (requestError) {
@@ -206,7 +253,13 @@ function App() {
                   }}
                   placeholder={view === 'publisher'
                     ? 'Search publisher or campaign'
-                    : view === 'day' ? 'Search date or campaign' : 'Search report'}
+                    : view === 'day'
+                      ? 'Search date or campaign'
+                      : view === 'gender'
+                        ? 'Search gender or campaign'
+                        : view === 'age'
+                          ? 'Search age group or campaign'
+                          : 'Search report'}
                 />
               </label>
               <label className="select-control view-select">
@@ -214,6 +267,7 @@ function App() {
                 <span className="visually-hidden">Select report view</span>
                 <select value={view} onChange={(event) => {
                   setReports([])
+                  setReportTotal(null)
                   setPagination(null)
                   setView(event.target.value)
                   setSearch('')
@@ -221,6 +275,8 @@ function App() {
                 }}>
                   <option value="all">All</option>
                   <option value="day">Day-wise</option>
+                  <option value="gender">Gender-wise</option>
+                  <option value="age">Age-wise</option>
                   <option value="publisher">Publisher-wise</option>
                   <option value="creator">Creator-wise</option>
                 </select>
@@ -255,6 +311,11 @@ function App() {
                     <ReportValues row={row} view={view} />
                   </tr>
                 ))}
+                {reportTotal && (view === 'day' || view === 'gender' || view === 'age') && (
+                  <tr className="total-row" key={reportTotal.id}>
+                    <ReportValues row={reportTotal} view={view} />
+                  </tr>
+                )}
                 {!loading && !error && reports.length === 0 && (
                   <tr><td className="empty-state" colSpan={columns.length}>{view === 'creator' ? 'No creator data found.' : 'No matching report rows.'}</td></tr>
                 )}
