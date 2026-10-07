@@ -1,33 +1,44 @@
 export const dayCsvFields = [
-  ['campaign', 'Campaign'],
   ['date', 'Date'],
-  ['impressions', 'Impressions'],
-  ['clicks', 'Clicks'],
-  ['ctr', 'CTR %'],
+  ['impressions', 'Impression'],
+  ['clicks', 'Click'],
+  ['ctr', 'CTR'],
   ['reach', 'Reach'],
   ['spend', 'Spend'],
 ]
 
-export const allCsvFields = [
-  ['campaign', 'Campaign'],
-  ['status', 'Status'],
-  ['totalAudience', 'Total Audience (TG & Geo)'],
-  ['impressions', 'Impressions'],
-  ['frequency', 'Freq'],
+export const videoCsvFields = [
+  ['date', 'Date'],
+  ['impressions', 'Impression'],
+  ['clicks', 'Click'],
+  ['ctr', 'CTR'],
   ['reach', 'Reach'],
-  ['reachPercent', 'Reach % of Total Audience'],
-  ['ctr', 'CTR %'],
-  ['clicks', 'Clicks'],
-  ['cpc', 'Rate per unit (CPC)'],
-  ['netCost', 'Net Cost (INR)'],
+  ['views', 'Views'],
+  ['spend', 'Spend'],
+]
+
+export const allCsvFields = [
+  ['platform', 'Platform'],
+  ['reportTill', 'Report till'],
+  ['impressionTarget', 'Impression target'],
+  ['impressionDelivered', 'Impression delivered'],
+  ['clicksTarget', 'Clicks target'],
+  ['clicksDelivered', 'Clicks delivered'],
+  ['actualCtr', 'Actual CTR'],
+  ['deliveredCtr', 'Delivered CTR'],
+  ['reachTarget', 'Reach target'],
+  ['reachDelivered', 'Reach delivered'],
+  ['viewsTarget', 'Views target'],
+  ['viewsDelivered', 'Views delivered'],
+  ['totalBudget', 'Total Budget'],
+  ['totalSpend', 'Total Spend'],
 ]
 
 export const publisherCsvFields = [
-  ['campaign', 'Campaign'],
   ['publisher', 'Publisher'],
-  ['impressions', 'Impressions'],
+  ['impressions', 'Impression'],
   ['clicks', 'Clicks'],
-  ['ctr', 'CTR %'],
+  ['ctr', 'CTR'],
   ['reach', 'Reach'],
 ]
 
@@ -41,23 +52,19 @@ export const creatorCsvFields = [
 ]
 
 export const genderCsvFields = [
-  ['campaign', 'Campaign'],
   ['gender', 'Gender'],
   ['impressions', 'Impression'],
   ['clicks', 'Click'],
   ['ctr', 'CTR'],
   ['reach', 'Reach'],
-  ['spend', 'Spend'],
 ]
 
 export const ageCsvFields = [
-  ['campaign', 'Campaign'],
   ['ageGroup', 'Age group'],
   ['impressions', 'Impression'],
   ['clicks', 'Click'],
   ['ctr', 'CTR'],
   ['reach', 'Reach'],
-  ['spend', 'Spend'],
 ]
 
 export function createReportCsv(reports, view = 'all') {
@@ -68,11 +75,17 @@ export function createReportCsv(reports, view = 'all') {
     day: dayCsvFields,
     gender: genderCsvFields,
     publisher: publisherCsvFields,
+    'video-ott': videoCsvFields,
   }[view] ?? allCsvFields
 
   return [
     fields.map(([, label]) => csvCell(label)).join(','),
-    ...reports.map((row) => fields.map(([key]) => csvCell(row[key] ?? '')).join(',')),
+    ...reports.map((row) => fields.map(([key]) => {
+      const value = view === 'video-ott' && key === 'spend' && row[key] != null
+        ? row[key].toFixed(2)
+        : row[key] ?? ''
+      return csvCell(value)
+    }).join(',')),
   ].join('\n')
 }
 

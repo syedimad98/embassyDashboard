@@ -316,7 +316,11 @@
 }
 
 .report-table.all-table {
-  min-width: 1500px;
+  min-width: 1900px;
+}
+
+.report-table.video-ott-table {
+  min-width: 1120px;
 }
 
 .report-table thead {
