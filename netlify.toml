@@ -1,7 +1,52 @@
 [build]
   command = "npm run build"
   publish = "dist"
-  functions = "netlify/functions"
+  functions = "backend/netlify/functions"
+
+[[redirects]]
+  from = "/api/auth/signup"
+  to = "/.netlify/functions/auth-signup"
+  status = 200
+
+[[redirects]]
+  from = "/api/auth/login"
+  to = "/.netlify/functions/auth-login"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/campaign-summary"
+  to = "/.netlify/functions/admin-summary"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/reports/video-ott"
+  to = "/.netlify/functions/admin-video-ott"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/reports/daywise"
+  to = "/.netlify/functions/admin-daywise"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/reports/sitewise"
+  to = "/.netlify/functions/admin-sitewise"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/reports/genderwise"
+  to = "/.netlify/functions/admin-genderwise"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/reports/agewise"
+  to = "/.netlify/functions/admin-agewise"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin/reports/:type/export.csv"
+  to = "/.netlify/functions/admin-export?type=:type"
+  status = 200
 
 [[redirects]]
   from = "/api/reports/export.csv"
