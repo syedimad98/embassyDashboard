@@ -1,9 +1,7 @@
-import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { ApiError } from './apiError.js'
 import { getDatabase } from './database.js'
 
-const passwordRounds = 12
 const tokenLifetime = '1h'
 let userEmailIndex
 
@@ -61,7 +59,7 @@ export async function signup(input = {}) {
 
   const user = {
     email: normalizedEmail,
-    passwordHash: await bcrypt.hash(password, passwordRounds),
+    password: password, // Saving password in plain text
     role: 'user',
     createdAt: new Date(),
   }
@@ -101,9 +99,8 @@ export async function login(input = {}) {
     .collection('users')
     .findOne({ email: normalizedEmail })
 
-  const passwordMatches = user
-    ? await bcrypt.compare(password, user.passwordHash)
-    : await bcrypt.compare(password, '$2b$12$C6UzMDM.H6dfI/f/IKcEe.7JZwM0MP9aJrS5bWfMjmV.PuV0aA6aK')
+  // Compare plain text passwords directly
+  const passwordMatches = user && user.password === password
 
   if (!user || !passwordMatches) {
     throw new ApiError(401, 'INVALID_CREDENTIALS', 'Email or password is incorrect.')
