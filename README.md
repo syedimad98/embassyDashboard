@@ -13,22 +13,6 @@ Open the Vite URL printed in the terminal. The API runs on port 3001 and Vite pr
 
 Run the frontend alone with `npm run dev` or the API alone with `npm run server`.
 
-### Run the backend independently
-
-The backend has its own `backend/package.json` with API dependencies and scripts:
-
-```sh
-cd backend
-npm install
-npm start
-```
-
-Use `npm run dev` from `backend/` for automatic restarts, or `npm test` to run
-the backend tests. The `seed:reports` and `admin:promote` scripts are also
-available there. When running from `backend/`, put your environment settings
-in `backend/.env` (or provide them as environment variables); commands run from
-the repository root continue to use the root `.env`.
-
 ## Deploy to Netlify
 
 The Netlify build configuration publishes the Vite `dist` directory and deploys the report endpoints as Netlify Functions from `backend/netlify/functions`. Connect the Git repository to Netlify and deploy using the root `netlify.toml`; the auth, admin report, legacy report, CSV, and health routes are routed to their matching functions.

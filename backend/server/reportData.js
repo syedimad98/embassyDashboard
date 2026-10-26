@@ -1,3 +1,4 @@
+
 export const campaignName = 'Embassy - Programmatic'
 
 export const summaryRows = [
@@ -85,7 +86,7 @@ function createDailyTotal(rows, id, includeViews = false) {
     date: 'Total',
     impressions,
     clicks,
-    ctr: Number(((clicks / impressions) * 100).toFixed(2)),
+    ctr: impressions ? Number(((clicks / impressions) * 100).toFixed(2)) : 0,
     reach: sumReportField(rows, 'reach'),
     ...(includeViews ? { views: sumReportField(rows, 'views') } : {}),
     spend: sumMoneyField(rows),
@@ -115,7 +116,7 @@ function createDemographicTotal(rows, id, labelKey) {
     [labelKey]: 'Total',
     impressions,
     clicks,
-    ctr: Number(((clicks / impressions) * 100).toFixed(2)),
+    ctr: impressions ? Number(((clicks / impressions) * 100).toFixed(2)) : 0,
     reach: rows.reduce((total, row) => total + row.reach, 0),
   }
 }
@@ -160,18 +161,23 @@ export const publisherRows = [
   { id: 'nasdaq', publisher: 'Nasdaq', impressions: 183179, clicks: 868, ctr: 0.47, reach: 62563 },
 ]
 
-export function getReportData({ view = 'all', date = 'all', search = '', page = 1, pageSize = 5 } = {}) {
+export function getReportData({
+  view = 'all',
+  date = 'all',
+  search = '',
+  page = 1,
+  pageSize = 5,
+} = {}) {
   const query = search.trim().toLowerCase()
 
   if (view === 'video-ott') {
-    const dateReports = date === 'all'
-      ? videoRows
-      : videoRows.filter((row) => row.id === date)
+    const dateReports = filterRowsByDateRange(videoRows, date)
+
     return createResponse({
       view,
       reports: filterBySearch(dateReports, query, 'date'),
       total: date === 'all' && !query ? videoTotal : null,
-      dates: createDateOptions(videoRows),
+      dates: dateRangeOptions(),
       page,
       pageSize,
     })
@@ -198,11 +204,9 @@ export function getReportData({ view = 'all', date = 'all', search = '', page = 
   }
 
   if (view === 'publisher') {
-    const publisherReports = addCampaign(publisherRows)
-
     return createResponse({
       view,
-      reports: filterBySearch(publisherReports, query, 'publisher'),
+      reports: filterBySearch(addCampaign(publisherRows), query, 'publisher'),
       dates: createDateOptions(),
       page,
       pageSize,
@@ -224,16 +228,13 @@ export function getReportData({ view = 'all', date = 'all', search = '', page = 
     })
   }
 
-  const dateReports = date === 'all'
-    ? reportRows
-    : reportRows.filter((row) => row.id === date)
-  const reports = filterBySearch(addCampaign(dateReports), query, 'date')
+  const dateReports = filterRowsByDateRange(reportRows, date)
 
   return createResponse({
     view: 'day',
-    reports,
+    reports: filterBySearch(addCampaign(dateReports), query, 'date'),
     total: date === 'all' && !query ? addCampaign([dayTotal])[0] : null,
-    dates: createDateOptions(),
+    dates: dateRangeOptions(),
     page,
     pageSize,
   })
@@ -246,7 +247,12 @@ function createResponse({ reports, page, pageSize, ...response }) {
     return {
       ...response,
       reports,
-      pagination: { page: 1, pageSize: totalItems, totalItems, totalPages: 1 },
+      pagination: {
+        page: 1,
+        pageSize: totalItems,
+        totalItems,
+        totalPages: 1,
+      },
     }
   }
 
@@ -272,12 +278,108 @@ function normalizePositiveInteger(value, fallback) {
   return Number.isInteger(number) && number > 0 ? number : fallback
 }
 
+function dateRangeOptions() {
+  return [
+    { value: 'all', label: 'All dates' },
+    { value: 'today', label: 'Today' },
+    { value: 'yesterday', label: 'Last day' },
+    { value: 'last7', label: 'Last week' },
+    { value: 'last15', label: 'Last 15 days' },
+    { value: 'last20', label: 'Last 20 days' },
+    { value: 'lastMonth', label: 'Last month' },
+  ]
+}
+
+function parseReportRowDate(value, referenceDate = new Date()) {
+  if (!value) return null
+
+  const match = String(value).trim().match(/^(\d{1,2})\s+([A-Za-z]{3,9})$/)
+  if (!match) return null
+
+  const monthIndex = new Date(
+    `${match[2]} 1, ${referenceDate.getFullYear()}`
+  ).getMonth()
+
+  if (Number.isNaN(monthIndex)) return null
+
+  return new Date(
+    referenceDate.getFullYear(),
+    monthIndex,
+    Number(match[1])
+  )
+}
+
+function filterRowsByDateRange(rows, range) {
+  if (!range || range === 'all') return rows
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
+
+  const monthStart = new Date(
+    today.getFullYear(),
+    today.getMonth() - 1,
+    1
+  )
+
+  const monthEnd = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    0
+  )
+
+  const start = new Date(today)
+
+  if (range === 'today') {
+    return rows.filter((row) => {
+      const rowDate = parseReportRowDate(row.date, today)
+      return rowDate && rowDate.getTime() === today.getTime()
+    })
+  }
+
+  if (range === 'yesterday') {
+    return rows.filter((row) => {
+      const rowDate = parseReportRowDate(row.date, yesterday)
+      return rowDate && rowDate.getTime() === yesterday.getTime()
+    })
+  }
+
+  if (range === 'last7' || range === 'last15' || range === 'last20') {
+    const daysBack = range === 'last7'
+      ? 6
+      : range === 'last15'
+        ? 14
+        : 19
+
+    start.setDate(today.getDate() - daysBack)
+
+    return rows.filter((row) => {
+      const rowDate = parseReportRowDate(row.date, today)
+      return rowDate && rowDate >= start && rowDate <= today
+    })
+  }
+
+  if (range === 'lastMonth') {
+    return rows.filter((row) => {
+      const rowDate = parseReportRowDate(row.date, monthEnd)
+      return rowDate && rowDate >= monthStart && rowDate <= monthEnd
+    })
+  }
+
+  return rows
+}
+
 function createDateOptions(rows = reportRows) {
   return rows.map(({ id, date: label }) => ({ value: id, label }))
 }
 
 function addCampaign(rows) {
-  return rows.map((row) => ({ campaign: campaignName, ...row }))
+  return rows.map((row) => ({
+    campaign: campaignName,
+    ...row,
+  }))
 }
 
 function filterBySearch(rows, query, labelKey) {
@@ -285,5 +387,6 @@ function filterBySearch(rows, query, labelKey) {
 
   return rows.filter((row) =>
     (row.campaign ?? '').toLowerCase().includes(query)
-    || String(row[labelKey] ?? '').toLowerCase().includes(query))
+    || String(row[labelKey] ?? '').toLowerCase().includes(query)
+  )
 }
