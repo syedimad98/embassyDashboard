@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import adBlissLogo from '../assets/AdBliss Digita logo cov.jpg'
 import embassyLogo from '../assets/embassy-logo.png'
-import './App.css'
+import '../App.css'
 
 const numberFormat = new Intl.NumberFormat('en-IN')
 const moneyFormat = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
