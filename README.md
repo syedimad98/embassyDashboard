@@ -9,7 +9,7 @@ npm install
 npm run dev:full
 ```
 
-Open the Vite URL printed in the terminal. The API runs on port 3001 and Vite proxies `/api` requests to it. If the default frontend port is already in use, Vite automatically selects the next available port.
+Open the Vite URL printed in the terminal. The API runs on port 3002 and Vite proxies `/api` requests to it. If the default frontend port is already in use, Vite automatically selects the next available port.
 
 Run the frontend alone with `npm run dev` or the API alone with `npm run server`.
 

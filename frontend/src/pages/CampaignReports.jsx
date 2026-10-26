@@ -406,7 +406,7 @@ export function ReportsDashboard({ currentUser, onLogout }) {
   onClick={() => window.open('/embassy-dashboard/upload-images', '_blank', 'noopener,noreferrer')}
 >
   <Upload size={18} />
-  Upload Images
+  Upload Screenshots
 </button>
 
             <button

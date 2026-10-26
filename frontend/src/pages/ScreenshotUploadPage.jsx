@@ -139,7 +139,7 @@ export default function ScreenshotUploadPage() {
           </div>
           {previews.length ? (
             <div className="uploaded-screenshot-gallery">
-              {randomItems(previews, Math.min(3, previews.length)).map(({ file, url }) => (
+              {previews.map(({ file, url }) => (
                 <figure className="uploaded-screenshot" key={`${file.name}-${file.lastModified}`}>
                   <img src={url} alt={file.name} />
                   <figcaption>{file.name}</figcaption>
