@@ -83,7 +83,8 @@ export async function signup(input = {}) {
   }
 
   const normalizedEmail = email.trim().toLowerCase()
-  const users = (await getDatabase()).collection('users')
+  const database = await getDatabase()
+  const users = database.collection('users')
 
   if (!userEmailIndex) {
     userEmailIndex = users.createIndex(
@@ -147,7 +148,8 @@ export async function login(input = {}) {
   }
 
   const normalizedEmail = email.trim().toLowerCase()
-  const users = (await getDatabase()).collection('users')
+  const database = await getDatabase()
+  const users = database.collection('users')
   const user = await users.findOne({ email: normalizedEmail })
 
   if (!user || !user.passwordHash) {
@@ -164,6 +166,13 @@ export async function login(input = {}) {
     _id: user._id,
     email: user.email,
     role: normalizeRole(user.role),
+  }
+  if (publicUser.role === 'user') {
+    const client = await database.collection('clients').findOne(
+      { email: normalizedEmail },
+      { projection: { name: 1 } },
+    )
+    publicUser.clientName = client?.name || user.name || ''
   }
 
   return {
@@ -213,5 +222,13 @@ export function requireAdmin(authorization) {
     throw new ApiError(403, 'ADMIN_REQUIRED', 'Admin access is required.')
   }
 
+  return user
+}
+
+export function requireAdOps(authorization, { allowAdmin = false } = {}) {
+  const user = authenticateToken(authorization)
+  if (user.role !== 'ad-ops' && !(allowAdmin && user.role === 'admin')) {
+    throw new ApiError(403, 'AD_OPS_REQUIRED', 'Ad-ops access is required.')
+  }
   return user
 }

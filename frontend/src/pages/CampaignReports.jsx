@@ -250,7 +250,12 @@ function isWithinDateRange(value, fromDate, toDate) {
   return true
 }
 
-export function ReportsDashboard({ currentUser, onLogout }) {
+export function ReportsDashboard({
+  currentUser,
+  onLogout,
+  embedded = false,
+  clientCampaignsEndpoint = '/api/campaigns',
+}) {
   const [reports, setReports] = useState([])
   const [reportTotal, setReportTotal] = useState(null)
   const [dates, setDates] = useState([])
@@ -274,16 +279,20 @@ export function ReportsDashboard({ currentUser, onLogout }) {
   const filterParams = new URLSearchParams({ view: reportView, date, search, from: fromDate, to: toDate, page: String(hasDateRange ? 1 : page), pageSize: hasDateRange ? '50' : '5' })
   const filterKey = filterParams.toString()
   const isClient = currentUser?.role === 'user' || currentUser?.role === 'client'
+  const isCampaignBookView = isClient || (embedded && currentUser?.role === 'ad-ops')
 
   useEffect(() => {
-    if (!isClient) return undefined
+    if (!isCampaignBookView) return undefined
     const controller = new AbortController()
     async function loadClientCampaigns() {
       setClientCampaignsLoading(true)
       try {
-        const response = await fetch('/api/campaigns', { signal: controller.signal })
+        const response = await fetch(clientCampaignsEndpoint, {
+          headers: currentUser?.token ? { Authorization: 'Bearer ' + currentUser.token } : {},
+          signal: controller.signal,
+        })
         const data = await response.json().catch(() => [])
-        if (!response.ok) throw new Error(data.message || 'Could not load campaign data.')
+        if (!response.ok) throw new Error(data?.error?.message || data.message || 'Could not load campaign data.')
         if (Array.isArray(data)) setClientCampaigns(data)
       } catch (requestError) {
         if (requestError.name !== 'AbortError') setError('Campaign data is unavailable. Check that the API server is running.')
@@ -293,7 +302,7 @@ export function ReportsDashboard({ currentUser, onLogout }) {
     }
     loadClientCampaigns()
     return () => controller.abort()
-  }, [isClient, refreshIndex])
+  }, [clientCampaignsEndpoint, currentUser?.token, isCampaignBookView, refreshIndex])
 
   const clientColumns = [
     { key: 'platform', label: 'Campaign name', className: 'campaign-column' },
@@ -348,6 +357,11 @@ export function ReportsDashboard({ currentUser, onLogout }) {
   }, [filterKey, refreshIndex, hasDateRange])
 
   function matchesCampaignDateRange(campaign) {
+    if (campaign.startDate || campaign.endDate) {
+      if (fromDate && (campaign.endDate || campaign.startDate) < fromDate) return false
+      if (toDate && (campaign.startDate || campaign.endDate) > toDate) return false
+      return true
+    }
     const reportDate = campaign.reportTill || campaign.reportTime || campaign.campaignTime || campaign.startDate || campaign.createdAt
     return isWithinDateRange(reportDate, fromDate, toDate)
   }
@@ -367,48 +381,49 @@ export function ReportsDashboard({ currentUser, onLogout }) {
   }
 
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <a className="client-brand" href="#top" aria-label="Embassy home"><img src={embassyLogo} alt="Embassy" /></a>
-        <span className="client-name">Embassy</span>
-        <nav className="breadcrumbs" aria-label="Breadcrumb">
-          <span></span>
-          <span className="breadcrumb-divider"></span>
+    <div className={`app-shell${embedded ? ' embedded-report-shell' : ''}`}>
+      {!embedded && (
+        <header className="topbar">
+          <a className="client-brand" href="#top" aria-label="Embassy home"><img src={embassyLogo} alt="Embassy" /></a>
+          <span className="client-name">Embassy</span>
+          <nav className="breadcrumbs" aria-label="Breadcrumb">
+            <span></span>
+            <span className="breadcrumb-divider"></span>
+          </nav>
+          <div className="user-profile">
+            <img className="avatar-logo" src={adBlissLogo} alt="AdBliss Digital" />
+            <span className="user-copy"><strong>{currentUser?.clientName || (currentUser?.email ? currentUser.email.split('@')[0] : 'Adbliss Digital')}</strong><small>{currentUser?.role === 'admin' ? 'Admin' : currentUser?.role === 'ad-ops' ? 'Ad-ops' : 'Client'}</small></span>
+            <button
+              className="logout-button"
+              type="button"
+              onClick={onLogout}
+              aria-label="Log out"
+              title="Log out"
+            >
+              <LogOut size={18} aria-hidden="true" />
+            </button>
+          </div>
+        </header>
+      )}
 
-        </nav>
-        <div className="user-profile">
-          <img className="avatar-logo" src={adBlissLogo} alt="AdBliss Digital" />
-          <span className="user-copy"><strong>{currentUser?.email ? currentUser.email.split('@')[0] : 'Adbliss Digital'}</strong><small>{currentUser?.role === 'admin' ? 'Admin' : currentUser?.role === 'ad-ops' ? 'Ad-ops' : 'Client'}</small></span>
-          <button
-            className="logout-button"
-            type="button"
-            onClick={onLogout}
-            aria-label="Log out"
-            title="Log out"
-          >
-            <LogOut size={18} aria-hidden="true" />
-          </button>
-        </div>
-      </header>
-
-      <main id="top" className="dashboard">
+      <main id={embedded ? undefined : 'top'} className={`dashboard${embedded ? ' embedded-report-dashboard' : ''}`}>
         <section className="page-heading">
           <div>
             <p className="eyebrow"></p>
-            <h1>Adbliss Reporting Dashboard</h1>
+            <h1>{embedded ? 'Campaign reporting' : 'Adbliss Reporting Dashboard'}</h1>
             <p className="page-description">Compare your planned audience delivery with actual performance.</p>
           </div>
           <div className="heading-actions">
-
-<button
-  type="button"
-  className="upload-images-btn"
-  onClick={() => window.open('/embassy-dashboard/upload-images', '_blank', 'noopener,noreferrer')}
->
-  <Upload size={18} />
-  Upload Screenshots
-</button>
-
+            {!embedded && (
+              <button
+                type="button"
+                className="upload-images-btn"
+                onClick={() => window.open('/embassy-dashboard/upload-images', '_blank', 'noopener,noreferrer')}
+              >
+                <Upload size={18} />
+                Upload Screenshots
+              </button>
+            )}
             <button
               className={`icon-button${loading ? ' is-refreshing' : ''}`}
               type="button"
@@ -439,11 +454,11 @@ export function ReportsDashboard({ currentUser, onLogout }) {
         <section className={`report-panel${isClient ? ' client-report-panel' : ''}`} aria-labelledby="report-heading">
           <div className="report-toolbar">
             <div className="report-title">
-              <p className="eyebrow muted-eyebrow">{isClient && reportView === 'all' ? 'CAMPAIGN BOOK' : viewDetails[reportView].eyebrow}</p>
+              <p className="eyebrow muted-eyebrow">{isCampaignBookView && reportView === 'all' ? 'CAMPAIGN BOOK' : viewDetails[reportView].eyebrow}</p>
               {viewDetails[reportView].title && <h2 id="report-heading">{viewDetails[reportView].title}</h2>}
             </div>
             <div className="filters" aria-label="Report filters">
-              {(isClient && reportView === 'all' || reportView === 'day' || reportView === 'video-ott') && (
+              {(isCampaignBookView && reportView === 'all' || reportView === 'day' || reportView === 'video-ott') && (
                 <div className="date-range-fields" aria-label="Filter by date range">
                   <label className="date-input-control">
                     <span>From</span>
@@ -489,7 +504,7 @@ export function ReportsDashboard({ currentUser, onLogout }) {
                   setSearch('')
                   setPage(1)
                 }}>
-                  <option value="all">{isClient ? 'All types' : 'All'}</option>
+                  <option value="all">{isClient ? 'Summary' : 'All'}</option>
                   <option value="videowise">Video-wise</option>
                   <option value="day">Day-wise</option>
                   <option value="gender">Gender-wise</option>
@@ -519,7 +534,7 @@ export function ReportsDashboard({ currentUser, onLogout }) {
 
           {error && <div className="error-banner" role="alert">{error}</div>}
 
-          {isClient && reportView === 'all' ? (
+          {isCampaignBookView && reportView === 'all' ? (
             <div className="client-campaign-tables">
               <section className="client-data-section" aria-labelledby="campaign-book-heading">
                 <h2 id="campaign-book-heading" className="visually-hidden">Campaign book</h2>
@@ -533,8 +548,8 @@ export function ReportsDashboard({ currentUser, onLogout }) {
                           <th scope="row" className="campaign-cell">{row.platform || row.campaignName || '—'}</th>
                           <td>{row.campaignType || '—'}</td>
                           <td>{row.reportTill || row.reportTime || (row.startDate ? formatCampaignDate(row.startDate) : '—')}</td>
-                          <td></td>
-                          <td></td>
+                          <td>{row.startDate ? formatCampaignDate(row.startDate) : '—'}</td>
+                          <td>{row.endDate ? formatCampaignDate(row.endDate) : '—'}</td>
                           <td>{row.impressionTarget == null ? '—' : formatNumber(row.impressionTarget)}</td>
                           <td>{row.clicksTarget == null ? '—' : formatNumber(row.clicksTarget)}</td>
                           <td>{row.reachTarget == null ? '—' : formatNumber(row.reachTarget)}</td>
@@ -564,7 +579,8 @@ export function ReportsDashboard({ currentUser, onLogout }) {
                           <th scope="row" className="campaign-cell">{row.platform || row.campaignName || '—'}</th>
                           <td>{row.campaignType || '—'}</td>
                           <td>{row.reportTill || row.reportTime || (row.startDate ? formatCampaignDate(row.startDate) : '—')}</td>
-                          <td></td><td></td>
+                          <td>{row.startDate ? formatCampaignDate(row.startDate) : '—'}</td>
+                          <td>{row.endDate ? formatCampaignDate(row.endDate) : '—'}</td>
                           <td>{row.impressionDelivered == null ? '—' : formatNumber(row.impressionDelivered)}</td>
                           <td>{row.clicksDelivered == null ? '—' : formatNumber(row.clicksDelivered)}</td>
                           <td>{row.actualCtr == null ? '—' : `${Number(row.actualCtr).toFixed(2)}%`}</td>
@@ -617,6 +633,7 @@ export function ReportsDashboard({ currentUser, onLogout }) {
 
 export function AdminCampaignReports({ currentUser, refreshIndex }) {
   const [campaigns, setCampaigns] = useState([])
+  const [adOpsCampaigns, setAdOpsCampaigns] = useState([])
   const [reportView, setReportView] = useState('all')
   const [reportPage, setReportPage] = useState(1)
   const [reportSearch, setReportSearch] = useState('')
@@ -625,6 +642,7 @@ export function AdminCampaignReports({ currentUser, refreshIndex }) {
   const [reportTotal, setReportTotal] = useState(null)
   const [reportDateOptions, setReportDateOptions] = useState([])
   const [loadingCampaigns, setLoadingCampaigns] = useState(true)
+  const [loadingAdOpsCampaigns, setLoadingAdOpsCampaigns] = useState(true)
   const [loadingReport, setLoadingReport] = useState(false)
   const [showData, setShowData] = useState(false)
   const [error, setError] = useState('')
@@ -653,6 +671,7 @@ export function AdminCampaignReports({ currentUser, refreshIndex }) {
     ...campaigns.filter((campaign) =>
       !summaryCampaignNames.has(String(campaign.campaignName || campaign.platform || '').trim().toLowerCase())
     ),
+    ...adOpsCampaigns,
   ]
   const searchedCampaigns = combinedCampaigns.filter((campaign) => {
     const text = `${campaign.campaignName || campaign.platform || ''} ${campaign.campaignTime || campaign.reportTill || ''}`.toLowerCase()
@@ -693,6 +712,28 @@ export function AdminCampaignReports({ currentUser, refreshIndex }) {
       })
     return () => controller.abort()
   }, [refreshIndex])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    setLoadingAdOpsCampaigns(true)
+    fetch('/api/ad-ops/campaigns', {
+      headers: currentUser?.token ? { Authorization: `Bearer ${currentUser.token}` } : {},
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(data?.error?.message || data.message || 'Could not load Ad-ops campaigns.')
+        return data
+      })
+      .then((data) => setAdOpsCampaigns(Array.isArray(data) ? data : []))
+      .catch((requestError) => {
+        if (requestError.name !== 'AbortError') setError(requestError.message || 'Could not load Ad-ops campaigns.')
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingAdOpsCampaigns(false)
+      })
+    return () => controller.abort()
+  }, [currentUser?.token, refreshIndex])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -794,7 +835,7 @@ export function AdminCampaignReports({ currentUser, refreshIndex }) {
           <div className="admin-panel-heading admin-report-heading">
             <h2 id="admin-data-heading">Campaign report</h2>
             <div className="admin-report-controls">
-              <span>{loadingCampaigns ? 'Loading campaigns…' : `${campaigns.length} ${campaigns.length === 1 ? 'campaign' : 'campaigns'}`}</span>
+              <span>{loadingCampaigns || loadingAdOpsCampaigns ? 'Loading campaigns…' : `${combinedCampaigns.length} ${combinedCampaigns.length === 1 ? 'campaign' : 'campaigns'}`}</span>
               <button className="admin-view-button" type="button" onClick={() => setShowData((visible) => !visible)} aria-expanded={showData}>
                 {showData ? 'Hide' : 'View'}
               </button>
@@ -849,7 +890,7 @@ export function AdminCampaignReports({ currentUser, refreshIndex }) {
               </div>
               {error && <div className="error-banner" role="alert">{error}</div>}
               {activeReportView === 'all' && searchedCampaigns.length === 0 ? (
-                <p className="admin-empty-state">{loadingCampaigns ? 'Loading saved campaigns…' : 'No campaign data yet. Fill in the form and select Submit.'}</p>
+                <p className="admin-empty-state">{loadingCampaigns || loadingAdOpsCampaigns ? 'Loading saved campaigns…' : 'No campaign data yet. Fill in the form and select Submit.'}</p>
               ) : activeReportView !== 'all' && !loadingReport && searchedReportRows.length === 0 ? (
                 <p className="admin-empty-state">No report data available for this view.</p>
               ) : (

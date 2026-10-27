@@ -63,11 +63,19 @@ function parseCsv(text) {
   })).filter((campaign) => campaign.campaignName.trim())
 }
 
-export default function CampaignDetailsForm({ currentUser, onCampaignSaved }) {
+export default function CampaignDetailsForm({
+  currentUser,
+  onCampaignSaved,
+  apiEndpoint = '/api/campaigns',
+  allowEditing = false,
+  savedCampaigns = [],
+  sectionTitle = 'Campaign details',
+}) {
   const [form, setForm] = useState(emptyForm)
   const [message, setMessage] = useState('')
   const [selectedFile, setSelectedFile] = useState(null)
   const [isExpanded, setIsExpanded] = useState(true)
+  const [editingCampaignId, setEditingCampaignId] = useState('')
 
   function updateField(event) {
     const { name, value } = event.target
@@ -75,9 +83,9 @@ export default function CampaignDetailsForm({ currentUser, onCampaignSaved }) {
     setMessage('')
   }
 
-  async function saveCampaign(campaign) {
-    const response = await fetch('/api/campaigns', {
-      method: 'POST',
+  async function saveCampaign(campaign, campaignId = '') {
+    const response = await fetch(campaignId ? `${apiEndpoint}/${encodeURIComponent(campaignId)}` : apiEndpoint, {
+      method: campaignId ? 'PUT' : 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(currentUser?.token ? { Authorization: `Bearer ${currentUser.token}` } : {}),
@@ -87,6 +95,28 @@ export default function CampaignDetailsForm({ currentUser, onCampaignSaved }) {
     const result = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(result.message || 'Campaign could not be saved.')
     return result
+  }
+
+  function selectCampaign(event) {
+    const campaignId = event.target.value
+    setEditingCampaignId(campaignId)
+    setMessage('')
+    const campaign = savedCampaigns.find((item) => String(item.id || item._id) === campaignId)
+    if (!campaign) {
+      setForm(emptyForm)
+      return
+    }
+
+    setForm({
+      campaignName: campaign.campaignName || '',
+      campaignTime: campaign.campaignTime || '',
+      startDate: campaign.startDate || '',
+      endDate: campaign.endDate || '',
+      impressionTarget: campaign.impressionTarget ?? '',
+      clicksTarget: campaign.clicksTarget ?? '',
+      reachTarget: campaign.reachTarget ?? '',
+      viewsTarget: campaign.viewsTarget ?? '',
+    })
   }
 
   async function handleSubmit(event) {
@@ -108,9 +138,10 @@ export default function CampaignDetailsForm({ currentUser, onCampaignSaved }) {
         clicksTarget: Number(form.clicksTarget) || 0,
         reachTarget: Number(form.reachTarget) || 0,
         viewsTarget: Number(form.viewsTarget) || 0,
-      })
+      }, editingCampaignId)
       setForm(emptyForm)
-      setMessage('Campaign details submitted successfully.')
+      setEditingCampaignId('')
+      setMessage(editingCampaignId ? 'Campaign details updated successfully.' : 'Campaign details submitted successfully.')
       onCampaignSaved()
     } catch (submitError) {
       setMessage(submitError.message || 'Campaign could not be saved. Check the backend and database connection.')
@@ -151,22 +182,25 @@ export default function CampaignDetailsForm({ currentUser, onCampaignSaved }) {
           aria-expanded={isExpanded}
           aria-controls="admin-campaign-form"
         >
-          <h2 id="admin-form-heading">Campaign details</h2>
+          <h2 id="admin-form-heading">{sectionTitle}</h2>
           {isExpanded ? <ChevronUp size={20} aria-hidden="true" /> : <ChevronDown size={20} aria-hidden="true" />}
         </button>
-        <input
-          id="admin-csv-upload"
-          className="visually-hidden"
-          type="file"
-          accept=".csv,text/csv"
-          onChange={handleFileUpload}
-        />
-        <button className="admin-upload-button" type="button" onClick={() => document.getElementById('admin-csv-upload')?.click()}>
-          Upload
-        </button>
+        
       </div>
       {isExpanded && (
         <form id="admin-campaign-form" className="admin-campaign-form" onSubmit={handleSubmit}>
+          {allowEditing && savedCampaigns.length > 0 && (
+            <label className="admin-inline-field admin-edit-campaign-field">
+              <span>Edit saved campaign</span>
+              <select value={editingCampaignId} onChange={selectCampaign}>
+                <option value="">Create a new campaign</option>
+                {savedCampaigns.map((campaign) => {
+                  const campaignId = String(campaign.id || campaign._id)
+                  return <option key={campaignId} value={campaignId}>{campaign.campaignName || 'Unnamed campaign'}</option>
+                })}
+              </select>
+            </label>
+          )}
           <div className="admin-detail-fields">
             <label className="admin-inline-field">
               <span>Campaign name</span>
@@ -206,8 +240,8 @@ export default function CampaignDetailsForm({ currentUser, onCampaignSaved }) {
           {message && <p className={`admin-form-message${message.startsWith('Please') || message.startsWith('Could not') || message.startsWith('No ') ? ' is-error' : ''}`} role="status">{message}</p>}
           {selectedFile && <p className="admin-selected-file">Selected file: {selectedFile.name}</p>}
           <div className="admin-form-actions">
-            <button className="admin-submit-button" type="submit">Submit</button>
-            <button className="admin-reset-button" type="button" onClick={() => { setForm(emptyForm); setMessage('') }}>Reset</button>
+            <button className="admin-submit-button" type="submit">{editingCampaignId ? 'Update' : 'Submit'}</button>
+            <button className="admin-reset-button" type="button" onClick={() => { setForm(emptyForm); setEditingCampaignId(''); setMessage('') }}>Reset</button>
           </div>
         </form>
       )}

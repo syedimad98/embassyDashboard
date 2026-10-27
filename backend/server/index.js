@@ -17,14 +17,249 @@ import {
   respondWithApiError,
   signupHandler,
 } from './apiHandlers.js'
+import { ApiError } from './apiError.js'
 import { getReportData, summaryRows } from './reportData.js'
 import { createReportCsv } from './reportCsv.js'
 import { getDatabase } from './database.js'
+import { ObjectId } from 'mongodb'
+import { requireAdmin, requireAdOps } from './auth.js'
+import { normalizeAdOpsCampaignRecord } from './adOpsCampaignRecord.js'
+import {
+  adOpsWorkbookMimeType,
+  adOpsWorkbookMaxRows,
+  createAdOpsWorkbookTemplate,
+  parseAdOpsWorkbook,
+} from './adOpsWorkbook.js'
 
 const app = express()
-const port = Number(process.env.PORT) || 3002
+const port = Number(process.env.PORT) || 3003
 
 app.use(express.json({ limit: '16kb' }))
+
+function serializeAdOpsCampaign(campaign) {
+  const { _id, ...fields } = campaign
+  return { ...fields, id: String(_id) }
+}
+
+function getAdOpsCampaignFilter(user, id) {
+  const filter = user.role === 'admin' ? {} : { ownerId: user.sub }
+  if (!id) return filter
+  if (!ObjectId.isValid(id)) {
+    throw new ApiError(404, 'CAMPAIGN_NOT_FOUND', 'Campaign was not found.')
+  }
+  return { ...filter, _id: new ObjectId(id) }
+}
+
+function serializeClient(client) {
+  return {
+    id: String(client._id),
+    name: client.name,
+    email: client.email,
+  }
+}
+
+app.get('/api/admin/user-access', async (request, response, next) => {
+  try {
+    requireAdmin(request.headers.authorization)
+    const database = await getDatabase()
+    const [users, clients] = await Promise.all([
+      database.collection('users')
+        .find({ role: 'ad-ops' }, { projection: { email: 1, clientAccess: 1 } })
+        .sort({ email: 1 })
+        .toArray(),
+      database.collection('clients')
+        .find({}, { projection: { name: 1, email: 1 } })
+        .sort({ name: 1 })
+        .toArray(),
+    ])
+    response.json({
+      users: users.map((user) => ({
+        id: String(user._id),
+        email: user.email,
+        allClients: user.clientAccess?.allClients === true,
+        clientIds: (user.clientAccess?.clientIds || []).map(String),
+      })),
+      clients: clients.map(serializeClient),
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
+app.put('/api/admin/user-access/:userId', async (request, response, next) => {
+  try {
+    requireAdmin(request.headers.authorization)
+    const { userId } = request.params
+    const { allClients = false, clientIds = [] } = request.body ?? {}
+    if (!ObjectId.isValid(userId)) {
+      throw new ApiError(400, 'INVALID_USER_ID', 'A valid Ad-ops user ID is required.')
+    }
+    if (typeof allClients !== 'boolean' || !Array.isArray(clientIds) || clientIds.some((id) => typeof id !== 'string' || !ObjectId.isValid(id))) {
+      throw new ApiError(400, 'INVALID_CLIENT_ACCESS', 'Client access must contain a valid all-clients choice and client IDs.')
+    }
+
+    const uniqueClientIds = [...new Set(clientIds)]
+    const database = await getDatabase()
+    const users = database.collection('users')
+    const user = await users.findOne({ _id: new ObjectId(userId), role: 'ad-ops' }, { projection: { _id: 1 } })
+    if (!user) throw new ApiError(404, 'AD_OPS_USER_NOT_FOUND', 'Ad-ops user was not found.')
+
+    if (!allClients && uniqueClientIds.length) {
+      const clients = await database.collection('clients')
+        .find({ _id: { $in: uniqueClientIds.map((id) => new ObjectId(id)) } }, { projection: { _id: 1 } })
+        .toArray()
+      if (clients.length !== uniqueClientIds.length) {
+        throw new ApiError(400, 'INVALID_CLIENT_ACCESS', 'One or more selected clients were not found.')
+      }
+    }
+
+    const clientAccess = {
+      allClients,
+      clientIds: allClients ? [] : uniqueClientIds,
+    }
+    await users.updateOne({ _id: new ObjectId(userId), role: 'ad-ops' }, { $set: { clientAccess } })
+    response.json({ userId, clientAccess })
+  } catch (error) {
+    next(error)
+  }
+})
+
+app.get('/api/ad-ops/clients', async (request, response, next) => {
+  try {
+    const user = requireAdOps(request.headers.authorization, { allowAdmin: true })
+    const database = await getDatabase()
+    let filter = {}
+
+    if (user.role !== 'admin') {
+      const account = await database.collection('users').findOne(
+        { _id: new ObjectId(user.sub), role: 'ad-ops' },
+        { projection: { clientAccess: 1 } },
+      )
+      if (!account?.clientAccess?.allClients) {
+        const clientIds = account?.clientAccess?.clientIds || []
+        filter = clientIds.length
+          ? { _id: { $in: clientIds.map((id) => new ObjectId(id)) } }
+          : { _id: { $exists: false } }
+      }
+    }
+
+    const clients = await database.collection('clients')
+      .find(filter, { projection: { name: 1, email: 1, address: 1 } })
+      .sort({ name: 1 })
+      .toArray()
+    response.json(clients.map(serializeClient))
+  } catch (error) {
+    next(error)
+  }
+})
+
+app.get('/api/ad-ops/campaigns/template.xlsx', async (request, response, next) => {
+  try {
+    requireAdOps(request.headers.authorization)
+    const workbook = await createAdOpsWorkbookTemplate()
+    response
+      .type(adOpsWorkbookMimeType)
+      .attachment('adops-template.xlsx')
+      .send(Buffer.from(workbook))
+  } catch (error) {
+    next(error)
+  }
+})
+
+app.post(
+  '/api/ad-ops/campaigns/bulk-upload',
+  express.raw({ type: adOpsWorkbookMimeType, limit: '5mb' }),
+  async (request, response, next) => {
+    try {
+      const user = requireAdOps(request.headers.authorization)
+      if (!Buffer.isBuffer(request.body)) {
+        throw new ApiError(415, 'EXCEL_FILE_REQUIRED', 'Upload the downloaded .xlsx template file.')
+      }
+      if (request.body.length === 0) {
+        throw new ApiError(400, 'EMPTY_UPLOAD', 'Select a non-empty Excel template file.')
+      }
+
+      const records = await parseAdOpsWorkbook(request.body)
+      if (records.length > adOpsWorkbookMaxRows) {
+        throw new ApiError(400, 'TOO_MANY_ROWS', `A maximum of ${adOpsWorkbookMaxRows} rows can be uploaded at once.`)
+      }
+      const createdAt = new Date()
+      const documents = records.map((record) => ({
+        ...record,
+        ownerId: user.sub,
+        createdAt,
+        updatedAt: createdAt,
+      }))
+      const result = await (await getDatabase())
+        .collection('adOpsCampaigns')
+        .insertMany(documents, { ordered: true })
+
+      response.status(201).json({
+        message: `${result.insertedCount} row${result.insertedCount === 1 ? '' : 's'} uploaded successfully.`,
+        insertedCount: result.insertedCount,
+      })
+    } catch (error) {
+      next(error)
+    }
+  },
+)
+
+app.get('/api/ad-ops/campaigns', async (request, response, next) => {
+  try {
+    const user = requireAdOps(request.headers.authorization, { allowAdmin: true })
+    const database = await getDatabase()
+    const campaigns = await database
+      .collection('adOpsCampaigns')
+      .find(getAdOpsCampaignFilter(user))
+      .sort({ createdAt: 1 })
+      .toArray()
+    response.json(campaigns.map(serializeAdOpsCampaign))
+  } catch (error) {
+    next(error)
+  }
+})
+
+app.post('/api/ad-ops/campaigns', async (request, response, next) => {
+  try {
+    const user = requireAdOps(request.headers.authorization)
+    const record = {
+      ...normalizeAdOpsCampaignRecord(request.body ?? {}),
+      ownerId: user.sub,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+    const database = await getDatabase()
+    const result = await database.collection('adOpsCampaigns').insertOne(record)
+    response.status(201).json(serializeAdOpsCampaign({ ...record, _id: result.insertedId }))
+  } catch (error) {
+    next(error)
+  }
+})
+
+app.put('/api/ad-ops/campaigns/:id', async (request, response, next) => {
+  try {
+    const user = requireAdOps(request.headers.authorization)
+    const database = await getDatabase()
+    const campaigns = database.collection('adOpsCampaigns')
+    const filter = getAdOpsCampaignFilter(user, request.params.id)
+    const record = {
+      ...normalizeAdOpsCampaignRecord(request.body ?? {}),
+      updatedAt: new Date(),
+    }
+    const result = await campaigns.findOneAndUpdate(
+      filter,
+      { $set: record },
+      { returnDocument: 'after' },
+    )
+    if (!result) {
+      response.status(404).json({ message: 'Campaign was not found.' })
+      return
+    }
+    response.json(serializeAdOpsCampaign(result))
+  } catch (error) {
+    next(error)
+  }
+})
 
 // Signup
 app.post('/api/auth/signup', async (request, response) => {
