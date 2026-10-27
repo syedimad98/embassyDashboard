@@ -1,6 +1,8 @@
 import dotenv from 'dotenv'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import multer from 'multer'
+import { ObjectId } from 'mongodb'
 
 const currentFile = fileURLToPath(import.meta.url)
 const currentDirectory = path.dirname(currentFile)
@@ -329,6 +331,122 @@ app.get('/api/reports/export.csv', (request, response) => {
     .attachment('audience-delivery-report.csv')
     .send(createReportCsv(exportRows, request.query.view))
 })
+
+
+const screenshotUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5 MB per image
+    files: 10,                 // Maximum 10 images per request
+  },
+  fileFilter: (_request, file, callback) => {
+    const allowedTypes = ['image/jpeg', 'image/png']
+
+    if (!allowedTypes.includes(file.mimetype)) {
+      const error = new Error('Only JPG and PNG images are allowed.')
+      error.statusCode = 400
+      return callback(error)
+    }
+
+    callback(null, true)
+  },
+})
+
+// GET: Fetch uploaded screenshots from MongoDB.
+app.get('/api/screenshots', async (_request, response, next) => {
+  try {
+    const database = await getDatabase()
+
+    const screenshots = await database
+      .collection('screenshots')
+      .find({})
+      .sort({ createdAt: -1 })
+      .toArray()
+
+    response.json({
+      screenshots: screenshots.map((image) => ({
+        id: String(image._id),
+        filename: image.filename,
+        mimetype: image.mimetype,
+        size: image.size,
+        createdAt: image.createdAt,
+        imageUrl: `data:${image.mimetype};base64,${image.data.toString('base64')}`,
+      })),
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
+// POST: Upload screenshots and save them in MongoDB.
+app.post(
+  '/api/screenshots',
+  screenshotUpload.array('screenshots', 10),
+  async (request, response, next) => {
+    try {
+      const files = request.files ?? []
+
+      if (files.length === 0) {
+        response.status(400).json({
+          message: 'Please select at least one JPG or PNG image.',
+        })
+        return
+      }
+
+      const database = await getDatabase()
+
+      const records = files.map((file) => ({
+        filename: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size,
+        data: file.buffer,
+        createdAt: new Date(),
+      }))
+
+      const result = await database
+        .collection('screenshots')
+        .insertMany(records)
+
+      response.status(201).json({
+        message: 'Screenshots uploaded successfully.',
+        uploadedCount: result.insertedCount,
+      })
+    } catch (error) {
+      next(error)
+    }
+  },
+)
+
+app.delete('/api/screenshots/:id', async (request, response, next) => {
+  try {
+    const { id } = request.params
+
+    if (!ObjectId.isValid(id)) {
+      return response.status(400).json({
+        message: 'Invalid screenshot ID.',
+      })
+    }
+
+    const database = await getDatabase()
+
+    const result = await database.collection('screenshots').deleteOne({
+      _id: new ObjectId(id),
+    })
+
+    if (result.deletedCount === 0) {
+      return response.status(404).json({
+        message: 'Screenshot not found.',
+      })
+    }
+
+    return response.json({
+      message: 'Screenshot deleted successfully.',
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
 
 // Central error handler
 app.use((error, _request, response, _next) => {
