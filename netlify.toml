@@ -4,6 +4,11 @@
   functions = "backend/netlify/functions"
 
 [[redirects]]
+  from = "/api/ad-ops/campaigns/template.xlsx"
+  to = "/.netlify/functions/adops-template"
+  status = 200
+
+[[redirects]]
   from = "/api/auth/signup"
   to = "/.netlify/functions/auth-signup"
   status = 200

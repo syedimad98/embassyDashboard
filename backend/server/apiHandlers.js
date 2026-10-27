@@ -55,9 +55,17 @@ export function respondWithApiError(error) {
   }
 
   if (error?.type === 'entity.too.large') {
+    const uploadLimit = Number(error.limit) > 16 * 1024
     return {
       statusCode: 413,
-      body: { error: { code: 'REQUEST_TOO_LARGE', message: 'Request body must not exceed 16 KB.' } },
+      body: {
+        error: {
+          code: 'REQUEST_TOO_LARGE',
+          message: uploadLimit
+            ? 'The Excel upload must not exceed 5 MB.'
+            : 'Request body must not exceed 16 KB.',
+        },
+      },
     }
   }
 

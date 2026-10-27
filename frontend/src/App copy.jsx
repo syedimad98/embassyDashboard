@@ -448,7 +448,7 @@ function ReportsDashboard({ currentUser, onLogout }) {
                   setSearch('')
                   setPage(1)
                 }}>
-                  <option value="all">{isClient ? 'All types' : 'All'}</option>
+                  <option value="all">{isClient ? 'Summary' : 'All'}</option>
                   <option value="videowise">Video-wise</option>
                   <option value="day">Day-wise</option>
                   <option value="gender">Gender-wise</option>

@@ -35,6 +35,14 @@ Public signup creates standard users only. After signup, an authorized operator 
 | GET | `/api/admin/reports/sitewise` | Admin |
 | GET | `/api/admin/reports/genderwise` | Admin |
 | GET | `/api/admin/reports/agewise` | Admin |
+| GET | `/api/ad-ops/campaigns` | Ad-ops (own campaigns); Admin (all Ad-ops campaigns) |
+| POST | `/api/ad-ops/campaigns` | Ad-ops |
+| PUT | `/api/ad-ops/campaigns/:id` | Ad-ops (own campaigns) |
+| GET | `/api/ad-ops/campaigns/template.xlsx` | Ad-ops (download the approved Excel template) |
+| POST | `/api/ad-ops/campaigns/bulk-upload` | Ad-ops (upload the approved Excel template, up to 1,000 rows) |
+| GET | `/api/admin/user-access` | Admin |
+| PUT | `/api/admin/user-access/:userId` | Admin |
+| GET | `/api/ad-ops/clients` | Ad-ops (assigned clients); Admin (all clients) |
 
 Report endpoints accept `page`, `pageSize`, `search`, and (for day-wise and Video OTT) `date`. CSV exports are available at `/api/admin/reports/:type/export.csv`, where `type` is `summary`, `video-ott`, `daywise`, `sitewise`, `genderwise`, or `agewise`.
 
@@ -42,6 +50,10 @@ Report endpoints accept `page`, `pageSize`, `search`, and (for day-wise and Vide
 
 - `GET /api/health` reports server health.
 - The legacy `GET /api/reports` and `GET /api/reports/export.csv` routes remain available for the existing dashboard.
+- Ad-ops campaign data is stored separately in `adOpsCampaigns`. Admin report views can read this data; Ad-ops users can only read and update their own records.
+- Ad-ops users can select a report type to enter and submit its corresponding fields. Report-specific records are stored in the same owner-scoped Ad-ops campaign API and included in CSV exports.
+- Ad-ops bulk uploads use the generated `.xlsx` template only. The `Upload Data` sheet has a separate section and field headings for each report type; add rows below the headings in the matching section. Up to 1,000 rows and 5 MB are accepted per upload.
+- Admins can grant Ad-ops accounts access to selected clients or all clients. Client login responses include the matching client name when the account email matches a saved client record.
 
 ## Checks
 

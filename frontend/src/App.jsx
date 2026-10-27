@@ -7,9 +7,12 @@ import { AdminCampaignReports, ReportsDashboard } from './pages/CampaignReports'
 import CampaignDetailsForm from './pages/CampaignDetailsForm'
 import ClientDetailsForm from './pages/ClientDetailsForm'
 import ScreenshotUploadPage from './pages/ScreenshotUploadPage'
+import AdOpsDashboard from './pages/AdOpsDashboard'
+import UserAuthorizationAccess from './pages/UserAuthorizationAccess'
 
 function AdminDashboard({ currentUser, onLogout }) {
   const [campaignRefreshIndex, setCampaignRefreshIndex] = useState(0)
+  const [activeTab, setActiveTab] = useState('campaigns')
 
   return (
     <div className="app-shell">
@@ -36,12 +39,44 @@ function AdminDashboard({ currentUser, onLogout }) {
             <p className="page-description">Enter campaign details and targets.</p>
           </div>
         </section>
-        <CampaignDetailsForm
-          currentUser={currentUser}
-          onCampaignSaved={() => setCampaignRefreshIndex((value) => value + 1)}
-        />
-        <ClientDetailsForm currentUser={currentUser} />
-        <AdminCampaignReports currentUser={currentUser} refreshIndex={campaignRefreshIndex} />
+        <div className="admin-dashboard-tabs" role="tablist" aria-label="Admin dashboard sections">
+          <button
+            id="admin-campaigns-tab"
+            className={activeTab === 'campaigns' ? 'is-active' : ''}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'campaigns'}
+            aria-controls="admin-campaigns-panel"
+            onClick={() => setActiveTab('campaigns')}
+          >
+            Campaign management
+          </button>
+          <button
+            id="admin-access-tab"
+            className={activeTab === 'access' ? 'is-active' : ''}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'access'}
+            aria-controls="admin-access-panel"
+            onClick={() => setActiveTab('access')}
+          >
+            User authorization access
+          </button>
+        </div>
+        {activeTab === 'campaigns' ? (
+          <div id="admin-campaigns-panel" role="tabpanel" aria-labelledby="admin-campaigns-tab">
+            <CampaignDetailsForm
+              currentUser={currentUser}
+              onCampaignSaved={() => setCampaignRefreshIndex((value) => value + 1)}
+            />
+            <ClientDetailsForm currentUser={currentUser} />
+            <AdminCampaignReports currentUser={currentUser} refreshIndex={campaignRefreshIndex} />
+          </div>
+        ) : (
+          <div id="admin-access-panel" role="tabpanel" aria-labelledby="admin-access-tab">
+            <UserAuthorizationAccess currentUser={currentUser} />
+          </div>
+        )}
       </main>
     </div>
   )
@@ -170,6 +205,10 @@ function App() {
 
   if (currentUser.role === 'admin') {
     return <AdminDashboard currentUser={currentUser} onLogout={handleLogout} />
+  }
+
+  if (currentUser.role === 'ad-ops') {
+    return <AdOpsDashboard currentUser={currentUser} onLogout={handleLogout} />
   }
 
   return <ReportsDashboard currentUser={currentUser} onLogout={handleLogout} />
